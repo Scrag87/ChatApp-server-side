@@ -88,6 +88,8 @@ public class ThreadedServer {
     for (ClientService client : clientsList) {
       if (client.getName().equals(comRecepMsg[1])) {
         client.sendMsg("Private from " + clientService.getName() + ": " + comRecepMsg[2]);
+      }else {
+        //TODO 
       }
     }
   }

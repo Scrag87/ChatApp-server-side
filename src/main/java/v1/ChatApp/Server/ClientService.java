@@ -52,13 +52,18 @@ public class ClientService {
     boolean isFirstMsg = true;
     System.out.println("readMessages()");
     while (true) {
+
+
+
       if (isFirstMsg) {
         sendMsg("enter your nickname(or ' /end ' to exit): ");
-        setName(getMsgFromClient());
-        isFirstMsg=false;
-        myServer.broadcastMsgMinusSender(getName() + " join us",this);
+        if(checkName(getMsgFromClient())){
+          isFirstMsg=false;
+          continue;
+        }
+        isFirstMsg = true;
+        continue;
       }
-
       String strFromClient = getMsgFromClient();
       if (strFromClient.equals("/p")) {
         myServer.printClientsList();
@@ -72,21 +77,24 @@ public class ClientService {
 
       System.out.println("от " + name + ": " + strFromClient);
       if (strFromClient.equals("/end")) {
+        sendMsg("<@#> Connection closed");
+
         return;
       }
       myServer.broadcastMsgMinusSender(name + ": " + strFromClient,this);
     }
   }
 
-  private void checkName(String msgFromClient) {
+  private boolean checkName(String msgFromClient) {
     if (!myServer.isNickBusy(msgFromClient)) {
-      sendMsg("/auth.Ok your nick is: " + msgFromClient);
+      sendMsg("<@#> " + msgFromClient + " successfully registered!" );
       setName(msgFromClient);
-      myServer.broadcastMsg(name + " join us");
+      myServer.broadcastMsg("<@#> "+ name + " join us");
       myServer.subscribe(this);
-      //return;
+      return true;
     } else {
-      sendMsg("Учетная запись уже используется");
+      sendMsg("<@#> "+ "Busy");
+      return false;
     }
   }
 
@@ -107,6 +115,7 @@ public class ClientService {
   public void sendMsg(String msg) {
     try {
       out.writeUTF(msg);
+      out.flush();
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -114,7 +123,7 @@ public class ClientService {
 
   public void closeConnection() {
     myServer.unsubscribe(this);
-    myServer.broadcastMsgMinusSender(name + " вышел из чата",this);
+    myServer.broadcastMsgMinusSender("<@#> "+name + " left us",this);
     try {
       in.close();
     } catch (IOException e) {
