@@ -83,15 +83,15 @@ public class ThreadedServer {
     }
   }
 
-  public synchronized void sendPrivateMsg(String msg, ClientService clientService) {
+  public synchronized boolean sendPrivateMsg(String msg, ClientService clientService) {
     String[] comRecepMsg = tokenize(msg);
     for (ClientService client : clientsList) {
       if (client.getName().equals(comRecepMsg[1])) {
         client.sendMsg("Private from " + clientService.getName() + ": " + comRecepMsg[2]);
-      }else {
-        //TODO 
+        return true;
       }
     }
+    return false;
   }
 
   public synchronized void unsubscribe(ClientService clientService) {

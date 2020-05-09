@@ -53,8 +53,6 @@ public class ClientService {
     System.out.println("readMessages()");
     while (true) {
 
-
-
       if (isFirstMsg) {
         sendMsg("enter your nickname(or ' /end ' to exit): ");
         if(checkName(getMsgFromClient())){
@@ -71,7 +69,10 @@ public class ClientService {
       }
 
       if (strFromClient.startsWith("/w")) {
-        myServer.sendPrivateMsg(strFromClient, this);
+        if(myServer.sendPrivateMsg(strFromClient, this)){
+        }else {
+          sendMsg("User unavailable");
+        }
         continue;
       }
 
@@ -90,7 +91,7 @@ public class ClientService {
       sendMsg("<@#> " + msgFromClient + " successfully registered!" );
       setName(msgFromClient);
       myServer.broadcastMsg("<@#> "+ name + " join us");
-      myServer.subscribe(this);
+    //  myServer.subscribe(this);
       return true;
     } else {
       sendMsg("<@#> "+ "Busy");
