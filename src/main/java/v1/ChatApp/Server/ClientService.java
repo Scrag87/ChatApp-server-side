@@ -44,7 +44,7 @@ public class ClientService {
     }
   }
 
-  public void authentication(){
+  public void authentication() {
     myServer.subscribe(this);
   }
 
@@ -55,8 +55,8 @@ public class ClientService {
 
       if (isFirstMsg) {
         sendMsg("enter your nickname(or ' /end ' to exit): ");
-        if(checkName(getMsgFromClient())){
-          isFirstMsg=false;
+        if (checkName(getMsgFromClient())) {
+          isFirstMsg = false;
           continue;
         }
         isFirstMsg = true;
@@ -67,10 +67,14 @@ public class ClientService {
         myServer.printClientsList();
         continue;
       }
+      if (strFromClient.equals("<@#>/u")) {
+        sendMsg("<@#>/u "+myServer.clientsListAsString());
+        continue;
+      }
 
       if (strFromClient.startsWith("/w")) {
-        if(myServer.sendPrivateMsg(strFromClient, this)){
-        }else {
+        if (myServer.sendPrivateMsg(strFromClient, this)) {
+        } else {
           sendMsg("User unavailable");
         }
         continue;
@@ -82,19 +86,18 @@ public class ClientService {
 
         return;
       }
-      myServer.broadcastMsgMinusSender(name + ": " + strFromClient,this);
+      myServer.broadcastMsgMinusSender(name + ": " + strFromClient, this);
     }
   }
 
   private boolean checkName(String msgFromClient) {
     if (!myServer.isNickBusy(msgFromClient)) {
-      sendMsg("<@#> " + msgFromClient + " successfully registered!" );
+      sendMsg("<@#> " + msgFromClient + " successfully registered!");
       setName(msgFromClient);
-      myServer.broadcastMsg("<@#> "+ name + " join us");
-    //  myServer.subscribe(this);
+      myServer.broadcastMsg("<@#> " + name + " join us");
       return true;
     } else {
-      sendMsg("<@#> "+ "Busy");
+      sendMsg("<@#> "+ msgFromClient + " Busy");
       return false;
     }
   }
@@ -105,8 +108,7 @@ public class ClientService {
       strFromClient = in.readUTF();
       System.out.println(strFromClient);
     } catch (IOException e) {
-      //если поток обрывается вместо клиента пишем /end
-     // e.printStackTrace();
+      // если поток обрывается вместо клиента пишем /end
       System.out.println("handle IOException in getMsgFromClient() ");
       strFromClient = "/end";
     }
@@ -115,6 +117,7 @@ public class ClientService {
 
   public void sendMsg(String msg) {
     try {
+      System.out.println(msg);
       out.writeUTF(msg);
       out.flush();
     } catch (IOException e) {
@@ -124,7 +127,7 @@ public class ClientService {
 
   public void closeConnection() {
     myServer.unsubscribe(this);
-    myServer.broadcastMsgMinusSender("<@#> "+name + " left us",this);
+    myServer.broadcastMsgMinusSender("<@#> " + name + " left us", this);
     try {
       in.close();
     } catch (IOException e) {

@@ -4,10 +4,12 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class ThreadedServer {
   private static int clientCount;
@@ -17,6 +19,15 @@ public class ThreadedServer {
 
   protected void printClientsList() {
     System.out.println(clientsList);
+  }
+
+  protected synchronized String  clientsListAsString() {
+    StringBuilder stringBuilder = new StringBuilder();
+    for (ClientService clientService : clientsList) {
+     stringBuilder.append(clientService.getName()).append(" ");
+      }
+   return  stringBuilder.toString();
+
   }
 
   public synchronized void addClientToMap(ClientService clientService, String name) {
@@ -102,5 +113,12 @@ public class ThreadedServer {
   public synchronized void subscribe(ClientService o) {
     clientsList.add(o);
     clientMap.put(o, "");
+  }
+
+  public  String join( Collection collection, String delimiter )
+  {
+    return (String) collection.stream()
+        .map( Object::toString )
+        .collect( Collectors.joining( delimiter ) );
   }
 }
