@@ -77,6 +77,14 @@ public class ThreadedServer {
     }
     return false;
   }
+  public synchronized void broadcastClientsList() {
+    StringBuilder sb = new StringBuilder("<@#>/u ");
+    for (ClientService o : clientsList) {
+      sb.append(o.getName() + " ");
+    }
+    broadcastMsg(sb.toString());
+  }
+
 
   public synchronized void broadcastMsgMinusSender(String msg, ClientService client) {
     Vector<ClientService> tmpList = new Vector<>();
@@ -108,11 +116,15 @@ public class ThreadedServer {
   public synchronized void unsubscribe(ClientService clientService) {
     clientsList.remove(clientService);
     clientMap.remove(clientService);
+    broadcastClientsList();
+
   }
 
   public synchronized void subscribe(ClientService o) {
     clientsList.add(o);
     clientMap.put(o, "");
+    broadcastClientsList();
+
   }
 
   public  String join( Collection collection, String delimiter )
