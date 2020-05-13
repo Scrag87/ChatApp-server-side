@@ -12,19 +12,29 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class ThreadedServer {
+  Message message ;
+
+
   private static int clientCount;
   static Map<ClientService, String> clientMap = new ConcurrentHashMap<>(); // id,username
   private final int PORT = 8087;
+  private Vector<Client> allClients = new Vector<>();
   private Vector<ClientService> clientsList;
 
-  protected void printClientsList() {
-    System.out.println(clientsList);
+  public Vector<Client> getAllClients() {
+    return allClients;
   }
 
+  protected void printOnlineClientsList() {
+    System.out.println(clientsList);
+  }
+  protected void printAllClients() {
+    System.out.println(allClients);
+  }
   protected synchronized String  clientsListAsString() {
     StringBuilder stringBuilder = new StringBuilder();
     for (ClientService clientService : clientsList) {
-     stringBuilder.append(clientService.getName()).append(" ");
+     stringBuilder.append(clientService.getClientName()).append(" ");
       }
    return  stringBuilder.toString();
 
@@ -33,7 +43,9 @@ public class ThreadedServer {
   public synchronized void addClientToMap(ClientService clientService, String name) {
     clientMap.put(clientService, name);
   }
-
+  public synchronized void addClientToAllClientsList(String username, String password) {
+    allClients.add(new Client(username,password));
+  }
   public ThreadedServer() {
     System.out.println("Threaded Echo Server");
     try (ServerSocket serverSocket = new ServerSocket(PORT)) {
@@ -51,7 +63,7 @@ public class ThreadedServer {
     System.out.println("Threaded Echo Server Terminating");
   }
 
-  protected String[] tokenize(String received) { // /command recipient message
+  protected String[] tokenizeCmdRcpMsg(String received) { // /command recipient message
     String[] clientMessage = {"", "", ""};
     StringTokenizer st = new StringTokenizer(received, " ");
     String command = st.nextToken();
@@ -60,27 +72,37 @@ public class ThreadedServer {
     while (st.hasMoreTokens()) {
       str.append(st.nextToken()).append(" ");
     }
-
     clientMessage[0] = command;
     clientMessage[1] = recipient;
     clientMessage[2] = str.toString();
     System.out.println("tokens " + Arrays.toString(clientMessage));
     return clientMessage;
   }
+  protected Message  tokenizeRegMsg(String received) { // /command recipient message
+    StringTokenizer st = new StringTokenizer(received, " ");
+    String command = st.nextToken();
+    String recipient = st.nextToken();
+    StringBuilder str = new StringBuilder();
+    while (st.hasMoreTokens()) {
+      str.append(st.nextToken()).append(" ");
+    }
+    return new Message(command,recipient,str.toString());
+  }
 
-  public synchronized boolean isNickBusy(String nickname) {
+  public synchronized boolean isUsernameBusy(String nickname) {
     // Map l8tr
-    for (ClientService clientService : clientsList) {
-      if (clientService.getName().equals(nickname)) {
+    for (Client client: allClients) {
+      if (client.name.equals(nickname)) {
         return true;
       }
     }
     return false;
   }
+
   public synchronized void broadcastClientsList() {
     StringBuilder sb = new StringBuilder("<@#>/u ");
     for (ClientService o : clientsList) {
-      sb.append(o.getName() + " ");
+      sb.append(o.getClientName() + " ");
     }
     broadcastMsg(sb.toString());
   }
@@ -103,10 +125,10 @@ public class ThreadedServer {
   }
 
   public synchronized boolean sendPrivateMsg(String msg, ClientService clientService) {
-    String[] comRecepMsg = tokenize(msg);
+    String[] comRecepMsg = tokenizeCmdRcpMsg(msg);
     for (ClientService client : clientsList) {
-      if (client.getName().equals(comRecepMsg[1])) {
-        client.sendMsg("Private from " + clientService.getName() + ": " + comRecepMsg[2]);
+      if (client.getClientName().equals(comRecepMsg[1])) {
+        client.sendMsg("Private from " + clientService.getClientName() + ": " + comRecepMsg[2]);
         return true;
       }
     }
@@ -116,13 +138,14 @@ public class ThreadedServer {
   public synchronized void unsubscribe(ClientService clientService) {
     clientsList.remove(clientService);
     clientMap.remove(clientService);
-    broadcastClientsList();
+       broadcastClientsList();
 
   }
 
   public synchronized void subscribe(ClientService o) {
     clientsList.add(o);
     clientMap.put(o, "");
+    broadcastMsg("<@#> " + o.getClientName() + " join us");
     broadcastClientsList();
 
   }
