@@ -4,37 +4,18 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 public class ClientService {
-  Client client;
-
-  Message message;
+  DbLayer database;
   private ThreadedServer myServer;
   private Socket socket;
   private DataInputStream in;
   private DataOutputStream out;
   private String clientName;
-  private String clientPassword;
-  private String clientNickname;
-  private boolean isLoggedIn = false;
-//  private boolean isAuth = false;
+  private boolean isLoggedIn;
 
-
-  public String getClientPassword() {
-    return clientPassword;
-  }
-
-  public void setClientPassword(String clientPassword) {
-    this.clientPassword = clientPassword;
-  }
-
-  public String getClientNickname() {
-    return clientNickname;
-  }
-
-  public void setClientNickname(String clientNickname) {
-    this.clientNickname = clientNickname;
-  }
 
   public String getClientName() {
     return clientName;
@@ -52,15 +33,16 @@ public class ClientService {
       this.out = new DataOutputStream(socket.getOutputStream());
       this.clientName = "";
       this.isLoggedIn = false;
+      this.database = new DbLayer();
       new Thread(
-              () -> {
-                try {
-                  authentication();
-                  readMessages();
-                } finally {
-                  closeConnection();
-                }
-              })
+          () -> {
+            try {
+              authentication();
+              readMessages();
+            } finally {
+              closeConnection();
+            }
+          })
           .start();
     } catch (IOException e) {
       throw new RuntimeException("Проблемы при создании обработчика клиента");
@@ -73,23 +55,22 @@ public class ClientService {
       if (strFromClient.equals("/end")) {
         sendMsg("<@#> Connection closed");
         closeConnection();
-
         return;
       }
 
-      if (strFromClient.equals("/p")) {
+      if (strFromClient.equals("/p")) { // FIXME: 5/30/20 in production )
         myServer.printOnlineClientsList();
         myServer.printAllClients();
         continue;
       }
 
-      if (strFromClient.startsWith("<@#>/uc")) {
+      if (strFromClient.startsWith("<@#>/uc")) {  // <@#>/uc u1 p1
         if (isLoggedIn) {
           sendMsg("<@#> already auth!");
           continue;
         }
         System.out.println("<@#>/uc");
-        auth(strFromClient);
+        System.out.println("Auth "+auth(strFromClient));
       }
 
       if (strFromClient.startsWith("<@#>/reg")) {
@@ -97,47 +78,47 @@ public class ClientService {
         registration(strFromClient);
       }
     }
-    myServer.subscribe(this);
-  }
 
-  private void exitApp() {
-    System.exit(11);
   }
 
   private boolean auth(String strFromClient) {
     String[] command = strFromClient.split(" ");
     String username = command[1];
     String password = command[2];
-    if (!myServer.getAllClients().isEmpty()) {
-      for (Client client : myServer.getAllClients()) {
-        if (client.name.equals(username)) {
-          if (client.password.equals(password)) {
-            isLoggedIn = true;
-            setClientName(username);
-            setClientPassword(password);
-            sendMsg("<@#> " + username + " successfully auth!");
-            return true;
-          } else {
-            sendMsg("<@#> " + username + " password wrong!");
-            return false;
-          }
-        }
-      }
+
+    if (!database.isClientInDbByName(username)){
+      sendMsg("<@#> " + username + " not registered");
+      return false;
+    }else if (!database.getClientCredentialByName(username)[1].equals(password)){
+      sendMsg("<@#> " + username + " password wrong!");
+      return false;
+    } else {
+      setClientName(username);
+      isLoggedIn = true;
+      sendMsg("<@#> " + username + " successfully auth!");
+      myServer.subscribe(this);
+      return true;
     }
-    sendMsg("<@#> " + username + " not exist!");
-    return false;
   }
 
   public void registration(String strFromClient) { // command username password
+
+    Connection connection =  database.openConnection();
+    try {
+      System.out.println("Connection closed > " + connection.isClosed());
+    } catch (SQLException throwables) {
+      throwables.printStackTrace();
+    }
     String[] command = strFromClient.split(" ");
     String username = command[1];
     String password = command[2];
-    if (checkName(username)) {
-      myServer.addClientToAllClientsList(username, password);
+    if (!isTaken(username)) {
+      database.addClient(username, password);
       sendMsg("<@#> " + username + " successfully registered!");
     } else {
       sendMsg("<@#> " + username + " is Busy");
     }
+    System.out.println("Connection closed > "+database.closeConnection(connection));
   }
 
   public void readMessages() {
@@ -172,16 +153,12 @@ public class ClientService {
     }
   }
 
-  private boolean checkName(String msgFromClient) {
-    if (!myServer.isUsernameBusy(msgFromClient)) {
-      return true;
-    } else {
-      return false;
-    }
+  private boolean isTaken(String clientName) {
+    return database.isClientInDbByName(clientName);
   }
 
   private String getMsgFromClient() {
-    String strFromClient = null;
+    String strFromClient ;
     try {
       strFromClient = in.readUTF();
       System.out.println(strFromClient);
@@ -203,7 +180,6 @@ public class ClientService {
   }
 
   public void closeConnection() {
-
     try {
       in.close();
     } catch (IOException e) {
@@ -236,21 +212,6 @@ public class ClientService {
    */
   private void parseCommand(String msg) { // FIXME: 5/13/20
     String[] command = msg.split(" ");
-
-    if (command.equals("<@#>/uc")) {
-      String username = command[1];
-      String password = command[2];
-    }
-    //    if (msg.startsWith("<@#>/reg")) {
-    //      String username = command[1];
-    //      String password = command[2];
-    //      if (checkName(username)) {
-    //        setClientName(username);
-    //
-    //        setClientPassword(password);
-    //        sendMsg("<@#> " + username + " successfully registered!");
-    //      }
-    //    }
 
     if (command.equals("<@#>/u")) {
       sendMsg("<@#>/u " + myServer.clientsListAsString());
