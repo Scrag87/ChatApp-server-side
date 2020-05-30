@@ -4,42 +4,58 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 public class ThreadedServer {
-  private static int clientCount;
+
   static Map<ClientService, String> clientMap = new ConcurrentHashMap<>(); // id,username
   private final int PORT = 8087;
+
+  private Vector<Client> allClients = new Vector<>();
   private Vector<ClientService> clientsList;
 
-  protected void printClientsList() {
+  protected void printOnlineClientsList() {
     System.out.println(clientsList);
   }
 
-  protected synchronized String  clientsListAsString() {
-    StringBuilder stringBuilder = new StringBuilder();
-    for (ClientService clientService : clientsList) {
-     stringBuilder.append(clientService.getName()).append(" ");
-      }
-   return  stringBuilder.toString();
-
+  protected void printAllClients() {
+    System.out.println(allClients);
   }
 
-  public synchronized void addClientToMap(ClientService clientService, String name) {
-    clientMap.put(clientService, name);
+  protected synchronized String clientsListAsString() {
+    StringBuilder stringBuilder = new StringBuilder();
+    for (ClientService clientService : clientsList) {
+      stringBuilder.append(clientService.getClientName()).append(" ");
+    }
+    return stringBuilder.toString();
+
   }
 
   public ThreadedServer() {
     System.out.println("Threaded Echo Server");
+    dbInit();
+    serverInit();
+  }
+
+  private void dbInit()  {
+    try {
+      DbLayer.initializationDbDriver();
+    } catch (ClassNotFoundException e) {
+      e.printStackTrace();
+    }
+    DbLayer dbLayer = new DbLayer();
+    dbLayer.createClientTable();
+
+  }
+
+  private void serverInit() {
     try (ServerSocket serverSocket = new ServerSocket(PORT)) {
       clientsList = new Vector<>();
 
-      while (true){
+      while (true) {
         System.out.println("Waiting for connection.....");
         Socket socket = serverSocket.accept();
         System.out.println("Client connected");
@@ -51,7 +67,7 @@ public class ThreadedServer {
     System.out.println("Threaded Echo Server Terminating");
   }
 
-  protected String[] tokenize(String received) { // /command recipient message
+  protected String[] tokenizeCmdRcpMsg(String received) { // /command recipient message
     String[] clientMessage = {"", "", ""};
     StringTokenizer st = new StringTokenizer(received, " ");
     String command = st.nextToken();
@@ -60,7 +76,6 @@ public class ThreadedServer {
     while (st.hasMoreTokens()) {
       str.append(st.nextToken()).append(" ");
     }
-
     clientMessage[0] = command;
     clientMessage[1] = recipient;
     clientMessage[2] = str.toString();
@@ -68,15 +83,15 @@ public class ThreadedServer {
     return clientMessage;
   }
 
-  public synchronized boolean isNickBusy(String nickname) {
-    // Map l8tr
-    for (ClientService clientService : clientsList) {
-      if (clientService.getName().equals(nickname)) {
-        return true;
-      }
+
+  public synchronized void broadcastClientsList() {
+    StringBuilder sb = new StringBuilder("<@#>/u ");
+    for (ClientService o : clientsList) {
+      sb.append(o.getClientName() + " ");
     }
-    return false;
+    broadcastMsg(sb.toString());
   }
+
 
   public synchronized void broadcastMsgMinusSender(String msg, ClientService client) {
     Vector<ClientService> tmpList = new Vector<>();
@@ -85,7 +100,6 @@ public class ThreadedServer {
     for (ClientService clientService : tmpList) {
       clientService.sendMsg(msg);
     }
-    tmpList = null;
   }
 
   public synchronized void broadcastMsg(String msg) {
@@ -95,10 +109,10 @@ public class ThreadedServer {
   }
 
   public synchronized boolean sendPrivateMsg(String msg, ClientService clientService) {
-    String[] comRecepMsg = tokenize(msg);
+    String[] comRecepMsg = tokenizeCmdRcpMsg(msg);
     for (ClientService client : clientsList) {
-      if (client.getName().equals(comRecepMsg[1])) {
-        client.sendMsg("Private from " + clientService.getName() + ": " + comRecepMsg[2]);
+      if (client.getClientName().equals(comRecepMsg[1])) {
+        client.sendMsg("Private from " + clientService.getClientName() + ": " + comRecepMsg[2]);
         return true;
       }
     }
@@ -108,17 +122,15 @@ public class ThreadedServer {
   public synchronized void unsubscribe(ClientService clientService) {
     clientsList.remove(clientService);
     clientMap.remove(clientService);
+    broadcastClientsList();
   }
 
   public synchronized void subscribe(ClientService o) {
     clientsList.add(o);
     clientMap.put(o, "");
+    broadcastMsg(o.getClientName() + " join us");
+    broadcastClientsList();
   }
 
-  public  String join( Collection collection, String delimiter )
-  {
-    return (String) collection.stream()
-        .map( Object::toString )
-        .collect( Collectors.joining( delimiter ) );
-  }
+
 }
