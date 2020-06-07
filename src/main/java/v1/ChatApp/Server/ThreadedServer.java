@@ -6,8 +6,11 @@ import java.net.Socket;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.UUID;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ThreadedServer {
 
@@ -37,7 +40,8 @@ public class ThreadedServer {
   public ThreadedServer() {
     System.out.println("Threaded Echo Server");
     dbInit();
-    serverInit();
+//    serverThreadedInit();
+    serverExecutorInit();
   }
 
   private void dbInit()  {
@@ -48,10 +52,39 @@ public class ThreadedServer {
     }
     DbLayer dbLayer = new DbLayer();
     dbLayer.createClientTable();
+    //CrudTest(dbLayer);
+  }
+
+  private void CrudTest(DbLayer dbLayer) {
+    String testName = "4cccbc4";
+    dbLayer.addClient(testName,"u1");
+    dbLayer.addClient(UUID.randomUUID().toString().substring(0,7),"u1");
+    System.out.println(Arrays.toString(dbLayer.getClientCredentialByName(testName)));
+    System.out.println(dbLayer.isClientInDbByName(testName));
+    dbLayer.addClient("124124","123");
+  }
+
+  private void serverExecutorInit() {
+    ExecutorService executorService = Executors.newCachedThreadPool();
+    try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+      clientsList = new Vector<>();
+      while (true) {
+        System.out.println("Waiting for connection.....");
+        Socket socket = serverSocket.accept();
+        System.out.println("Client connected");
+        executorService.submit(() -> new ClientService(this, socket));
+      }
+
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    executorService.shutdown();
+    System.out.println("Thread Pool Server Terminated");
 
   }
 
-  private void serverInit() {
+  private void serverThreadedInit() {
     try (ServerSocket serverSocket = new ServerSocket(PORT)) {
       clientsList = new Vector<>();
 

@@ -34,18 +34,18 @@ public class DbLayer {
   public boolean addClient(String name, String password) {
     System.out.println("Adding client " + name + " / " + password);
     connection = openConnection();
-    String createUser =
-        "INSERT INTO USERS (name, password, created_at) VALUES (\'" + name + "','" + password
-            + "', datetime('now','localtime'));";
+
+    String createSql = "INSERT INTO USERS (name, password, created_at) VALUES ('%s','%s',%s);";
+    createSql = String.format(createSql, name, password, " datetime('now','localtime')");
     try {
       try (Statement statement = connection.createStatement()) {
-        System.out.println(createUser);
+        System.out.println(createSql);
         if (isClientInDbByName(name)) {
           System.out.println("Client exist!");
           closeConnection(connection);
           return false;
         } else {
-          statement.execute(createUser);
+          statement.executeUpdate(createSql);
           closeConnection(connection);
           return true;
         }
